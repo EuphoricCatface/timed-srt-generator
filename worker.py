@@ -130,5 +130,5 @@ class Worker(QObject):
             pass
 
         # Emit success
-        self.diarization_done.emit(diarization)
+        self.diarization_done.emit()
         self.finished.emit()
