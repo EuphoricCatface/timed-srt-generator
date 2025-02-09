@@ -167,7 +167,11 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self.on_work_finished)
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
+
+        def thread_cleanup():
+            self.thread.deleteLater()
+            self.thread = None
+        self.thread.finished.connect(thread_cleanup)
 
         # Start the thread
         self.thread.start()
@@ -209,6 +213,15 @@ class MainWindow(QMainWindow):
         self.browse_save_button.setDisabled(False)
         self.start_button.setDisabled(False)
         # The thread will be quit and deleted, the worker will be deleted.
+
+    def closeEvent(self, event, /):
+        # Prevent closing - not the cleanest, but better than the thread left running without the window
+        if self.thread:
+            QMessageBox.critical(self, "Job running", "Please wait until the job finishes.\n"
+                                                      "Otherwise, please force-quit the program. Sorry!")
+            event.ignore()
+            return
+        super().closeEvent(event)
 
 
 def main():
