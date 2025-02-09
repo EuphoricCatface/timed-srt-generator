@@ -11,9 +11,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QFileDialog,
     QLabel,
-    QMessageBox
+    QMessageBox,
+    QToolTip
 )
 from PySide6.QtCore import Qt, QThread, Signal, QObject
+from PySide6.QtGui import QCursor
 
 
 class MainWindow(QMainWindow):
@@ -28,11 +30,23 @@ class MainWindow(QMainWindow):
 
         # Layouts
         main_layout = QVBoxLayout(main_widget)
+        hfauth_layout = QHBoxLayout()
         input_layout = QHBoxLayout()
         output_layout = QHBoxLayout()
         button_layout = QHBoxLayout()
 
         # Widgets
+        self.hfauth_lineedit = QLineEdit()
+        self.hfauth_lineedit.setPlaceholderText("hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+        self.hfauth_help_button = QPushButton("?")
+        self.hfauth_help_button.clicked.connect(
+            lambda: QToolTip.showText(
+                QCursor.pos(),
+                "Create your own HuggingFace authentication token and put it here."
+            )
+        )
+
         self.input_lineedit = QLineEdit()
         self.input_lineedit.setPlaceholderText("Input video file path...")
 
@@ -52,6 +66,9 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self.start_processing)
 
         # Add widgets to layouts
+        hfauth_layout.addWidget(self.hfauth_lineedit)
+        hfauth_layout.addWidget(self.hfauth_help_button)
+
         input_layout.addWidget(self.input_lineedit)
         input_layout.addWidget(self.browse_load_button)
 
@@ -60,6 +77,7 @@ class MainWindow(QMainWindow):
 
         button_layout.addWidget(self.start_button)
 
+        main_layout.addLayout(hfauth_layout)
         main_layout.addLayout(input_layout)
         main_layout.addLayout(output_layout)
         main_layout.addLayout(button_layout)
