@@ -45,7 +45,10 @@ class MainWindow(QMainWindow):
         self.hfauth_help_button.clicked.connect(
             lambda: QToolTip.showText(
                 QCursor.pos(),
-                "Create your own HuggingFace authentication token and put it here."
+                "Only needed for the initial download.\n"
+                "Create your own HuggingFace authentication token and put it here.\n"
+                "Make sure to accept the user conditions of pyannote/segmentation-3.0 \n"
+                "and pyannote/speaker-diarization-3.1."
             )
         )
 
