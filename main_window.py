@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThread, Signal, QObject
 from PySide6.QtGui import QCursor
 
+import worker
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -127,7 +129,83 @@ class MainWindow(QMainWindow):
         """
         Spawns a QThread for the heavy tasks.
         """
-        pass
+        hfauth = self.hfauth_lineedit.text().strip()
+
+        video_path = self.input_lineedit.text().strip()
+        if not video_path:
+            QMessageBox.warning(self, "Warning", "Please specify a video file.")
+            return
+        if not os.path.exists(video_path):
+            QMessageBox.critical(self, "Error", f"File not found:\n{video_path}")
+            return
+
+        srt_path = self.output_lineedit.text().strip()
+        if not srt_path:
+            QMessageBox.warning(self, "Warning", "Please specify an output path.")
+            return
+        if os.path.exists(srt_path):
+            rtn = QMessageBox.question(self, "Overwrite?", f"{video_path}\nalready exists. Overwrite?")
+            if rtn == QMessageBox.StandardButton.NoButton:
+                return
+
+        self.statusBar().showMessage("Running...")
+
+        # Create a QThread
+        self.thread = QThread()
+        # Create a Worker and move it to the thread
+        self.worker = worker.Worker(hfauth, video_path, srt_path)
+        self.worker.moveToThread(self.thread)
+
+        # Connect signals
+        self.thread.started.connect(self.worker.run)
+        self.worker.started.connect(self.on_work_started)
+        self.worker.error.connect(self.on_work_error)
+        self.worker.diarization_done.connect(self.on_diarization_done)
+        self.worker.finished.connect(self.on_work_finished)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        # Start the thread
+        self.thread.start()
+
+    def on_work_started(self):
+        """
+        Worker signals that it's beginning work (optional).
+        """
+        # Update UI
+        self.hfauth_lineedit.setDisabled(True)
+        self.input_lineedit.setDisabled(True)
+        self.browse_load_button.setDisabled(True)
+        self.output_lineedit.setDisabled(True)
+        self.browse_save_button.setDisabled(True)
+        self.start_button.setDisabled(True)
+
+    def on_work_error(self, error_msg):
+        """
+        Show an error message from the worker.
+        """
+        QMessageBox.critical(self, "Error", error_msg)
+        self.statusBar().showMessage("Ready")
+
+    def on_diarization_done(self):
+        """
+        Called when diarization completes successfully.
+        """
+        QMessageBox.information(self, "Success", "Diarization completed successfully!")
+
+    def on_work_finished(self):
+        """
+        Worker signals that it's finished. Clean up UI or do other tasks.
+        """
+        self.statusBar().showMessage("Ready")
+        self.hfauth_lineedit.setDisabled(False)
+        self.input_lineedit.setDisabled(False)
+        self.browse_load_button.setDisabled(False)
+        self.output_lineedit.setDisabled(False)
+        self.browse_save_button.setDisabled(False)
+        self.start_button.setDisabled(False)
+        # The thread will be quit and deleted, the worker will be deleted.
 
 
 def main():
