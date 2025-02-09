@@ -25,6 +25,37 @@ def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
         print(f"FFmpeg error: {e}")
         return False
 
+def write_diarizaed_to_srt(diarization, output_srt):
+    """
+    Writes a minimal SRT with speaker labels (optional) and blank lines for text.
+    segments: list of (start_time, end_time, speaker_label).
+    """
+
+    def srt_time_format(seconds):
+        import math
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        millis = int((seconds - int(seconds)) * 1000)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+    # Diarization to segment
+    segments = []
+    for turn, _, speaker in diarization.itertracks(yield_label=True):
+        start_time = turn.start
+        end_time = turn.end
+        segments.append((start_time, end_time, speaker))
+
+    # Sort segments by start time to ensure correct SRT order
+    segments = sorted(segments, key=lambda x: x[0])
+
+    with open(output_srt, 'w', encoding='utf-8') as f:
+        for i, (start, end, speaker) in enumerate(segments, start=1):
+            f.write(f"{i}\n")
+            f.write(f"{srt_time_format(start)} --> {srt_time_format(end)}\n")
+            # Put speaker label as a placeholder comment or prefix
+            f.write(f"[{speaker}]: \n\n")
+
 class Worker(QObject):
     """
     Worker to be moved to a background QThread.
@@ -85,7 +116,12 @@ class Worker(QObject):
             return
 
         # 3) Write SRT output
-        # ...WIP...
+        try:
+            write_diarizaed_to_srt(diarization, self.srt_path)
+        except Exception as e:
+            self.error.emit(f"SRT output failed: {str(e)}")
+            self.finished.emit()
+            return
 
         # Clean up temp file
         try:
