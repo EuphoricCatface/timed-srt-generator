@@ -84,6 +84,12 @@ class MainWindow(QMainWindow):
         if not selected_files:
             return
         self.input_lineedit.setText(selected_files[0])
+        # Autocomplete output path
+        video_path = selected_files[0]
+        path_split = os.path.split(video_path)
+        ext_split = os.path.splitext(path_split[1])
+        srt_path = os.path.join(path_split[0], ext_split[0] + ".srt")
+        self.output_lineedit.setText(srt_path)
 
     def browse_file_save(self):
         """
