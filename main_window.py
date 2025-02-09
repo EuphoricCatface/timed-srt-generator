@@ -147,8 +147,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Warning", "Please specify an output path.")
             return
         if os.path.exists(srt_path):
-            rtn = QMessageBox.question(self, "Overwrite?", f"{video_path}\nalready exists. Overwrite?")
-            if rtn == QMessageBox.StandardButton.NoButton:
+            rtn = QMessageBox.question(self, "Overwrite?", f"{srt_path}\nalready exists. Overwrite?")
+            if rtn == QMessageBox.StandardButton.No:
                 return
 
         self.statusBar().showMessage("Running...")
