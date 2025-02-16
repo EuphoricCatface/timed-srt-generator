@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
 
         # Widgets
         self.hfauth_lineedit = QLineEdit()
-        self.hfauth_lineedit.setPlaceholderText("hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        self.hfauth_lineedit.setPlaceholderText("HuggingFace Token: hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
         self.hfauth_help_button = QPushButton("?")
         self.hfauth_help_button.clicked.connect(
@@ -47,8 +47,8 @@ class MainWindow(QMainWindow):
                 QCursor.pos(),
                 "Only needed for the initial download.\n"
                 "Create your own HuggingFace authentication token and put it here.\n"
-                "Make sure to accept the user conditions of pyannote/segmentation-3.0 \n"
-                "and pyannote/speaker-diarization-3.1."
+                "Make sure to accept the user conditions of `pyannote/segmentation-3.0`\n"
+                "and `pyannote/speaker-diarization-3.1`."
             )
         )
 
@@ -188,11 +188,22 @@ class MainWindow(QMainWindow):
         self.browse_save_button.setDisabled(True)
         self.start_button.setDisabled(True)
 
-    def on_work_error(self, error_msg):
+    def on_work_error(self, error_msg: str):
         """
         Show an error message from the worker.
         """
-        QMessageBox.critical(self, "Error", error_msg)
+        hint_msg = None
+        if error_msg.startswith("Pipeline load failed:"):
+            hint_msg = ("Create your own HuggingFace token, and enter the token into this program.\n"
+                        "Also make sure you have accepted the user conditions of pyannote/segmentation-3.0\n"
+                        "and pyannote/speaker-diarization-3.1.")
+        elif error_msg == "Failed to extract audio with FFmpeg":
+            hint_msg = "Install FFmpeg"
+        if hint_msg:
+            display_msg = error_msg + "\n\nHint: " + hint_msg
+        else:
+            display_msg = error_msg
+        QMessageBox.critical(self, "Error", display_msg)
         self.statusBar().showMessage("Ready")
 
     def on_diarization_done(self):
