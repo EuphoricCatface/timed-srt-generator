@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+import torch.cuda
 from PySide6.QtCore import QObject, Signal
 
 
@@ -112,6 +113,11 @@ class Worker(QObject):
         try:
             if not Worker.DIARIZATION_PIPELINE:
                 raise RuntimeError("pyannote.audio pipeline not available.")
+            if torch.cuda.is_available():
+                device = torch.device("cuda")
+            else:
+                device = torch.device("cpu")
+            Worker.DIARIZATION_PIPELINE.to(device)
             diarization = Worker.DIARIZATION_PIPELINE(audio_output)
         except Exception as e:
             self.error.emit(f"Diarization failed: {str(e)}")
