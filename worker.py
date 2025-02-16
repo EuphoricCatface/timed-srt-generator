@@ -3,6 +3,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
+
 def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
     """
     Extract audio from the input video using FFmpeg.
@@ -24,6 +25,7 @@ def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
     except subprocess.CalledProcessError as e:
         print(f"FFmpeg error: {e}")
         return False
+
 
 def write_diarizaed_to_srt(diarization, output_srt):
     """
@@ -56,6 +58,7 @@ def write_diarizaed_to_srt(diarization, output_srt):
             # Put speaker label as a placeholder comment or prefix
             f.write(f"[{speaker}]: \n\n")
 
+
 class Worker(QObject):
     """
     Worker to be moved to a background QThread.
@@ -85,7 +88,7 @@ class Worker(QObject):
         self.started.emit()
 
         # 0) Load the diarization pipeline
-        from pyannote.audio import Pipeline  # Importing this in the global scope creates lengthy delay at startup
+        from pyannote.audio import Pipeline  # Importing this in the global scope creates a lengthy delay at startup
         if Worker.DIARIZATION_PIPELINE is None:
             try:
                 Worker.DIARIZATION_PIPELINE = Pipeline.from_pretrained(
