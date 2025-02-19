@@ -1,5 +1,6 @@
 import sys
 import os
+import multiprocessing as mp
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -13,7 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QToolTip
 )
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QCursor
 
 import worker
@@ -89,9 +90,14 @@ class MainWindow(QMainWindow):
         # Status bar
         self.statusBar().showMessage("Ready")
 
-        # Keep references to thread & worker to prevent garbage collection
-        self.thread = None
-        self.worker = None
+        # multiprocessing
+        self.q_progress = mp.Queue()
+        self.q_error_msg = mp.Queue()
+        self.q_result = mp.Queue()
+
+        # Keep references to worker process to prevent garbage collection
+        self.worker_process = None
+        self.worker_check_timer = None
 
     def browse_file_load(self):
         """
@@ -152,28 +158,45 @@ class MainWindow(QMainWindow):
 
         self.statusBar().showMessage("Running...")
 
-        # Create a QThread
-        self.thread = QThread()
-        # Create a Worker and move it to the thread
-        self.worker = worker.Worker(hfauth, video_path, srt_path)
-        self.worker.moveToThread(self.thread)
+        # Initialize
+        while not self.q_progress.empty():
+            self.q_progress.get_nowait()
+        while not self.q_error_msg.empty():
+            self.q_error_msg.get_nowait()
+        while not self.q_result.empty():
+            self.q_result.get_nowait()
+
+        # Run the worker process
+        self.worker_process = mp.Process(
+            target=worker.run,
+            args=(hfauth, video_path, srt_path, self.q_progress, self.q_error_msg, self.q_result)
+        )
 
         # Connect signals
-        self.thread.started.connect(self.worker.run)
-        self.worker.started.connect(self.on_work_started)
-        self.worker.error.connect(self.on_work_error)
-        self.worker.diarization_done.connect(self.on_diarization_done)
-        self.worker.finished.connect(self.on_work_finished)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
+        def check_worker():
+            while not self.q_progress.empty():
+                _ = self.q_progress.get_nowait()
+                pass  # NYI
+            while not self.q_error_msg.empty():
+                err_msg = self.q_error_msg.get_nowait()
+                self.on_work_error(err_msg)
+            if not self.q_result.empty():
+                result: bool = self.q_result.get_nowait()
+                self.worker_check_timer.stop()
+                if result:
+                    self.on_diarization_done()
+                self.on_work_finished()
+                self.worker_process.join()
+                self.worker_check_timer = None
+                self.worker_process = None
 
-        def thread_cleanup():
-            self.thread.deleteLater()
-            self.thread = None
-        self.thread.finished.connect(thread_cleanup)
+        self.worker_check_timer = QTimer(interval=100)
+        self.worker_check_timer.timeout.connect(check_worker)
 
         # Start the thread
-        self.thread.start()
+        self.worker_process.start()
+        self.worker_check_timer.start()
+        self.on_work_started()
 
     def on_work_started(self):
         """

@@ -1,9 +1,22 @@
 import subprocess
 from pathlib import Path
 import os.path
+import enum
+import multiprocessing as mp
 
 import torch.cuda
-from PySide6.QtCore import QObject, Signal
+
+
+class WorkerProgress(enum.Enum):
+    Initializing = enum.auto()
+    PipelineLoading = enum.auto()
+    AudioExtracting = enum.auto()
+    Diarizing = enum.auto()
+    SRTOutput = enum.auto()
+    Finalizing = enum.auto()
+
+
+DIARIZATION_PIPELINE = None
 
 
 def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
@@ -65,91 +78,78 @@ def write_diarizaed_to_srt(diarization, output_srt):
             f.write(f"[{speaker}]: \n\n")
 
 
-class Worker(QObject):
+def run(hfauth, video_path, srt_path, q_progress: mp.Queue, q_error_msg: mp.Queue, q_result: mp.Queue):
     """
-    Worker to be moved to a background QThread.
-    Handles the heavy tasks: FFmpeg extraction + Speaker Diarization.
+    Main method that is called from the background thread.
+    1) Extract audio with FFmpeg
+    2) Run pyannote.audio speaker diarization
     """
-    # Define signals to communicate back to the main thread
-    started = Signal()
-    finished = Signal()
-    error = Signal(str)
-    diarization_done = Signal()  # object will hold the diarization results
 
-    DIARIZATION_PIPELINE = None
+    global DIARIZATION_PIPELINE
+    q_progress.put(WorkerProgress.Initializing)
 
-    def __init__(self, hfauth, video_path, srt_path, parent=None):
-        super().__init__(parent)
-        self.hfauth = hfauth
-        self.video_path = video_path
-        self.srt_path = srt_path
-        self._stop_flag = False
+    # 0) Load the diarization pipeline
+    q_progress.put(WorkerProgress.PipelineLoading)
+    try:
+        from pyannote.audio import Pipeline  # Importing this in the global scope creates a lengthy delay at startup
+    except Exception as e:
+        q_error_msg.put(f"pyannote import error: {str(e)}")
+        q_result.put(False)
+        return
+    try:
+        if DIARIZATION_PIPELINE is None:
+            DIARIZATION_PIPELINE = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1",
+                 use_auth_token=hfauth
+            )
+        if DIARIZATION_PIPELINE is None:
+            raise RuntimeError("pyannote.audio pipeline not available.")
+    except Exception as e:
+        q_error_msg.put(f"Pipeline load failed: {str(e)}")
+        q_result.put(False)
+        return
 
-    def run(self):
-        """
-        Main method that is called from the background thread.
-        1) Extract audio with FFmpeg
-        2) Run pyannote.audio speaker diarization
-        """
-        self.started.emit()
+    # 1) Extract audio
+    q_progress.put(WorkerProgress.AudioExtracting)
+    audio_filename = "temp_audio.wav"
+    audio_output_folder = os.path.dirname(srt_path)
+    audio_output = os.path.join(audio_output_folder, audio_filename)
+    success = extract_audio_with_ffmpeg(video_path, audio_output)
+    if not success:
+        q_error_msg.put("Failed to extract audio with FFmpeg.")
+        q_result.put(False)
+        return
 
-        # 0) Load the diarization pipeline
-        try:
-            from pyannote.audio import Pipeline  # Importing this in the global scope creates a lengthy delay at startup
-        except Exception as e:
-            self.error.emit(f"pyannote import error: {str(e)}")
-            self.finished.emit()
-            return
-        try:
-            if Worker.DIARIZATION_PIPELINE is None:
-                Worker.DIARIZATION_PIPELINE = Pipeline.from_pretrained(
-                    "pyannote/speaker-diarization-3.1",
-                     use_auth_token=self.hfauth
-                )
-            if Worker.DIARIZATION_PIPELINE is None:
-                raise RuntimeError("pyannote.audio pipeline not available.")
-        except Exception as e:
-            self.error.emit(f"Pipeline load failed: {str(e)}")
-            self.finished.emit()
-            return
+    # 2) Run speaker diarization
+    q_progress.put(WorkerProgress.Diarizing)
+    try:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            device = torch.device("cpu")
+        DIARIZATION_PIPELINE.to(device)
+        diarization = DIARIZATION_PIPELINE(audio_output)
+    except Exception as e:
+        q_error_msg.put(f"Diarization failed: {str(e)}")
+        q_result.put(False)
+        return
 
-        # 1) Extract audio
-        audio_filename = "temp_audio.wav"
-        audio_output_folder = os.path.dirname(self.srt_path)
-        audio_output = os.path.join(audio_output_folder, audio_filename)
-        success = extract_audio_with_ffmpeg(self.video_path, audio_output)
-        if not success:
-            self.error.emit("Failed to extract audio with FFmpeg.")
-            self.finished.emit()
-            return
+    # 3) Write SRT output
+    q_progress.put(WorkerProgress.SRTOutput)
+    try:
+        write_diarizaed_to_srt(diarization, srt_path)
+    except Exception as e:
+        q_error_msg.put(f"SRT output failed: {str(e)}")
+        q_result.put(False)
+        return
 
-        # 2) Run speaker diarization
-        try:
-            if torch.cuda.is_available():
-                device = torch.device("cuda")
-            else:
-                device = torch.device("cpu")
-            Worker.DIARIZATION_PIPELINE.to(device)
-            diarization = Worker.DIARIZATION_PIPELINE(audio_output)
-        except Exception as e:
-            self.error.emit(f"Diarization failed: {str(e)}")
-            self.finished.emit()
-            return
+    # Clean up temp file
+    q_progress.put(WorkerProgress.Finalizing)
+    try:
+        Path(audio_output).unlink(missing_ok=True)
+    except OSError:
+        pass
 
-        # 3) Write SRT output
-        try:
-            write_diarizaed_to_srt(diarization, self.srt_path)
-        except Exception as e:
-            self.error.emit(f"SRT output failed: {str(e)}")
-            self.finished.emit()
-            return
-
-        # Clean up temp file
-        try:
-            Path(audio_output).unlink(missing_ok=True)
-        except OSError:
-            pass
-
-        # Emit success
-        self.diarization_done.emit()
-        self.finished.emit()
+    # Success
+    q_result.put(True)
+    return
