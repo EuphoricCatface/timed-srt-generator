@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+import os.path
 
 import torch.cuda
 from PySide6.QtCore import QObject, Signal
@@ -10,8 +11,12 @@ def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
     Extract audio from the input video using FFmpeg.
     Returns True if successful, otherwise False.
     """
+    if os.name == "nt":
+        ffmpeg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg.exe")
+    else:
+        ffmpeg = "ffmpeg"
     cmd = [
-        "ffmpeg",
+        ffmpeg,
         "-y",           # overwrite output if exists
         "-i", video_path,
         "-vn",          # no video
