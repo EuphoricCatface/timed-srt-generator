@@ -25,6 +25,7 @@ def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
     Returns True if successful, otherwise False.
     """
     if os.name == "nt":
+        # If on Windows, find ffmpeg.exe in the script folder
         ffmpeg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg.exe")
     else:
         ffmpeg = "ffmpeg"
@@ -81,8 +82,10 @@ def write_diarizaed_to_srt(diarization, output_srt):
 def run(hfauth, video_path, srt_path, q_progress: mp.Queue, q_error_msg: mp.Queue, q_result: mp.Queue):
     """
     Main method that is called from the background thread.
+    0) Load the diarization pipeline
     1) Extract audio with FFmpeg
     2) Run pyannote.audio speaker diarization
+    3) Write an SRT output file
     """
 
     global DIARIZATION_PIPELINE
@@ -134,7 +137,7 @@ def run(hfauth, video_path, srt_path, q_progress: mp.Queue, q_error_msg: mp.Queu
         q_result.put(False)
         return
 
-    # 3) Write SRT output
+    # 3) Write an SRT output file
     q_progress.put(WorkerProgress.SRTOutput)
     try:
         write_diarizaed_to_srt(diarization, srt_path)

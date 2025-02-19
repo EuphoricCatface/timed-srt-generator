@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
 
     def on_work_started(self):
         """
-        Worker signals that it's beginning work (optional).
+        Worker signals that it's beginning work.
         """
         # Update UI
         self.hfauth_lineedit.setDisabled(True)
@@ -245,10 +245,8 @@ class MainWindow(QMainWindow):
         self.output_lineedit.setDisabled(False)
         self.browse_save_button.setDisabled(False)
         self.start_button.setDisabled(False)
-        # The thread will be quit and deleted, the worker will be deleted.
 
     def closeEvent(self, event, /):
-        # Prevent closing - not the cleanest, but better than the thread left running without the window
         if self.worker_process:
             rtn = QMessageBox.question(self, "Job running", f"Job is running.\n"
                                                             f"Force quit?")
