@@ -249,11 +249,14 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event, /):
         # Prevent closing - not the cleanest, but better than the thread left running without the window
-        if self.thread:
-            QMessageBox.critical(self, "Job running", "Please wait until the job finishes.\n"
-                                                      "Otherwise, please force-quit the program. Sorry!")
-            event.ignore()
-            return
+        if self.worker_process:
+            rtn = QMessageBox.question(self, "Job running", f"Job is running.\n"
+                                                            f"Force quit?")
+            if rtn == QMessageBox.StandardButton.No:
+                event.ignore()
+                return
+            self.worker_process.terminate()
+            self.worker_process.join()
         super().closeEvent(event)
 
 
