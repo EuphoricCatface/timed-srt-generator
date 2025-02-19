@@ -23,7 +23,7 @@ def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print(f"FFmpeg error: {e}")
         return False
 
@@ -89,17 +89,24 @@ class Worker(QObject):
         self.started.emit()
 
         # 0) Load the diarization pipeline
-        from pyannote.audio import Pipeline  # Importing this in the global scope creates a lengthy delay at startup
-        if Worker.DIARIZATION_PIPELINE is None:
-            try:
+        try:
+            from pyannote.audio import Pipeline  # Importing this in the global scope creates a lengthy delay at startup
+        except Exception as e:
+            self.error.emit(f"pyannote import error: {str(e)}")
+            self.finished.emit()
+            return
+        try:
+            if Worker.DIARIZATION_PIPELINE is None:
                 Worker.DIARIZATION_PIPELINE = Pipeline.from_pretrained(
                     "pyannote/speaker-diarization-3.1",
                      use_auth_token=self.hfauth
                 )
-            except Exception as e:
-                self.error.emit(f"Pipeline load failed: {str(e)}")
-                self.finished.emit()
-                return
+            if Worker.DIARIZATION_PIPELINE is None:
+                raise RuntimeError("pyannote.audio pipeline not available.")
+        except Exception as e:
+            self.error.emit(f"Pipeline load failed: {str(e)}")
+            self.finished.emit()
+            return
 
         # 1) Extract audio
         audio_output = "temp_audio.wav"
@@ -111,8 +118,6 @@ class Worker(QObject):
 
         # 2) Run speaker diarization
         try:
-            if not Worker.DIARIZATION_PIPELINE:
-                raise RuntimeError("pyannote.audio pipeline not available.")
             if torch.cuda.is_available():
                 device = torch.device("cuda")
             else:
