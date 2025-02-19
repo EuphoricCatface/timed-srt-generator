@@ -114,7 +114,9 @@ class Worker(QObject):
             return
 
         # 1) Extract audio
-        audio_output = "temp_audio.wav"
+        audio_filename = "temp_audio.wav"
+        audio_output_folder = os.path.dirname(self.srt_path)
+        audio_output = os.path.join(audio_output_folder, audio_filename)
         success = extract_audio_with_ffmpeg(self.video_path, audio_output)
         if not success:
             self.error.emit("Failed to extract audio with FFmpeg.")
