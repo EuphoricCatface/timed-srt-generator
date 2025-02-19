@@ -10,11 +10,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QFileDialog,
-    QLabel,
     QMessageBox,
     QToolTip
 )
-from PySide6.QtCore import Qt, QThread, Signal, QObject
+from PySide6.QtCore import QThread
 from PySide6.QtGui import QCursor
 
 import worker
