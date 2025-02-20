@@ -75,9 +75,9 @@
 - 사용자 편의를 위한 구성 요소: `ffmpeg.exe`, `main_window.bat`, `README.md`, `README_windows_KR.txt`
 
 프로그램의 정상 작동 및 사용 편의를 위해서, 위 파일들을 모두 포함한 형태로 배포하는 것을 권장합니다.
-업데이트는 자유롭게 하셔도 되지만,  그 외의 수정은 가하지 않는 편이 좋습니다.
+업데이트는 자유롭게 하셔도 되지만, 그 외의 수정은 가하지 않는 편이 좋습니다.
 
-`main_window.py`, `worker.py`의 최신 버전은 아래 GitHub 저장소에서 찾으실 수 있습니다.
+`ffmpeg.exe` 파일을 제외한 나머지 요소들의 최신 버전은 아래 GitHub 저장소에서 찾으실 수 있습니다.
 - https://github.com/euphoriccatface/timed-srt-generator
 
 기능 개선과 같은 수정을 가하고 싶다면, 수정된 버전을 임의로 배포하기보다는,
