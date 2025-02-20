@@ -39,12 +39,7 @@ def extract_audio_with_ffmpeg(video_path: str, output_path: str) -> bool:
         "-f", "wav",
         output_path
     ]
-    try:
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
-    except Exception as e:
-        print(f"FFmpeg error: {e}")
-        return False
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def write_diarizaed_to_srt(diarization, output_srt):
@@ -114,12 +109,13 @@ def run(hfauth, video_path, srt_path, q_progress: mp.Queue, q_error_msg: mp.Queu
 
     # 1) Extract audio
     q_progress.put(WorkerProgress.AudioExtracting)
-    audio_filename = "temp_audio.wav"
-    audio_output_folder = os.path.dirname(srt_path)
-    audio_output = os.path.join(audio_output_folder, audio_filename)
-    success = extract_audio_with_ffmpeg(video_path, audio_output)
-    if not success:
-        q_error_msg.put("Failed to extract audio with FFmpeg.")
+    try:
+        audio_filename = "temp_audio.wav"
+        audio_output_folder = os.path.dirname(srt_path)
+        audio_output = os.path.join(audio_output_folder, audio_filename)
+        extract_audio_with_ffmpeg(video_path, audio_output)
+    except Exception as e:
+        q_error_msg.put("Failed to extract audio with FFmpeg: " + str(e))
         q_result.put(False)
         return
 

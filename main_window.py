@@ -216,11 +216,11 @@ class MainWindow(QMainWindow):
         """
         hint_msg = None
         if error_msg.startswith("Pipeline load failed:"):
-            hint_msg = ("Create your own HuggingFace token, and enter the token into this program.\n"
+            hint_msg = ("Try creating your own HuggingFace token, and then enter the token into this program.\n"
                         "Also make sure you have accepted the user conditions of pyannote/segmentation-3.0\n"
                         "and pyannote/speaker-diarization-3.1.")
-        elif error_msg == "Failed to extract audio with FFmpeg.":
-            hint_msg = "Install FFmpeg"
+        elif error_msg.startswith("Failed to extract audio with FFmpeg:"):
+            hint_msg = "Try installing FFmpeg"
         if hint_msg:
             display_msg = error_msg + "\n\nHint: " + hint_msg
         else:
