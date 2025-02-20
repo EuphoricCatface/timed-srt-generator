@@ -175,8 +175,8 @@ class MainWindow(QMainWindow):
         # Connect signals
         def check_worker():
             while not self.q_progress.empty():
-                _ = self.q_progress.get_nowait()
-                pass  # NYI
+                progress = self.q_progress.get_nowait()
+                self.on_progress(progress)
             while not self.q_error_msg.empty():
                 err_msg = self.q_error_msg.get_nowait()
                 self.on_work_error(err_msg)
@@ -256,6 +256,21 @@ class MainWindow(QMainWindow):
             self.worker_process.terminate()
             self.worker_process.join()
         super().closeEvent(event)
+
+    def on_progress(self, progress):
+        match progress:
+            case worker.WorkerProgress.Initializing:
+                self.statusBar().showMessage("Initialized")
+            case worker.WorkerProgress.PipelineLoading:
+                self.statusBar().showMessage("Loading AI pipelines...")
+            case worker.WorkerProgress.AudioExtracting:
+                self.statusBar().showMessage("Extracting audio from the video...")
+            case worker.WorkerProgress.Diarizing:
+                self.statusBar().showMessage("Performing the AI task (diarization) - This may take a while...")
+            case worker.WorkerProgress.SRTOutput:
+                self.statusBar().showMessage("Creating and saving the SRT file...")
+            case worker.WorkerProgress.SRTOutput:
+                self.statusBar().showMessage("Finalizing...")
 
 
 def main():
