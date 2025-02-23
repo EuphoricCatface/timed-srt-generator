@@ -1,4 +1,5 @@
 @echo off
+@chcp 65001 1>NUL 2>NUL
 
 :: venv\Scripts\activate.bat 파일이 있는지 확인
 if not exist venv\Scripts\activate.bat (
